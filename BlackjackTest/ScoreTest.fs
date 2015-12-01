@@ -109,7 +109,7 @@ module Score =
     [<Test>]
     let ``21を超えるリストを渡した場合は(Busted, false)が返ること`` () =
         let cardListGen = gen {
-            let! sum = Gen.choose(22, 30)
+            let! sum = Gen.frequency [9, Gen.choose(22, 30); 1, Gen.choose(31, 100)]
             let! numbers = getCardListGen sum
             return numbers
         }
