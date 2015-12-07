@@ -93,3 +93,56 @@ module Game =
         }
         Prop.forAll (Arb.fromGen ruleGen) (Game.validateRule >> (=) (Success()))
         |> Check.QuickThrowOnFailure
+
+    let getCardListGen sum =
+        let rec loop result = function
+            | 0 -> result |> Gen.constant
+            | sum -> gen {
+                let maxNumber = min sum 10
+                let! number = Gen.choose(1, maxNumber)
+                let! rank =
+                    match number with
+                    | 1 -> Gen.constant AceRank
+                    | 10 -> Gen.elements [NumberRank 10; JackRank; QueenRank; KingRank]
+                    | x -> Gen.constant (NumberRank x)
+                let! suit = Arb.generate<CardSuit>
+                return! loop ({ Suit = suit; Rank = rank }::result) (sum - number)
+            }
+        loop [] sum
+
+    [<Test>]
+    let ``playPlayerにBusted状態の手を渡すとBustedが返り、カードリストと状態は変化せず、playerStrategyは呼び出されないこと`` () =
+        let parameterGen = gen {
+            let! gameState = Arb.generate<GameState>
+            let! sum = Gen.choose(22, 30)
+            let! playerHands = getCardListGen sum
+            let! cards = Arb.generate<Card> |> Gen.listOf
+            return cards, { gameState with PlayerHands = playerHands }
+        }
+        Prop.forAll (Arb.fromGen parameterGen) (fun (cards, gameState) ->
+            let mutable called = false
+            let playerStrategy _ = called <- true; Hit
+            Game.playPlayer playerStrategy cards gameState = (Busted, cards, gameState) && not called)
+        |> Check.QuickThrowOnFailure
+
+    // TODO playPlayerのテスト追加
+
+    [<Test>]
+    let ``playDealerにBusted状態の手を渡すとBustedが返り、状態は変化せず、dealerStrategyは呼び出されないこと`` () =
+        let parameterGen = gen {
+            let! gameState = Arb.generate<GameState>
+            let! sum = Gen.choose(22, 30)
+            let! dealerHands = getCardListGen sum
+            let! cards = Arb.generate<Card> |> Gen.listOf
+            return cards, { gameState with DealerHands = dealerHands }
+        }
+        Prop.forAll (Arb.fromGen parameterGen) (fun (cards, gameState) ->
+            let mutable called = false
+            let dealerStrategy _ = called <- true; Game.DealerAction.Hit
+            Game.playDealer dealerStrategy cards gameState = (Busted, gameState) && not called)
+        |> Check.QuickThrowOnFailure
+
+    // TODO playDealerのテスト追加
+    // TODO getResultのテスト追加
+    // TODO getGainのテスト追加
+    // TODO playのテスト追加
