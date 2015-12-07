@@ -8,6 +8,7 @@ open NUnit.Framework
 module Game =
     open Adacola.Blackjack
     open Basis.Core
+    open System
 
     let getScoreGen withinBlackjack minScore maxScore = gen {
         let scores = [for i in minScore .. maxScore -> Score i]
@@ -70,21 +71,25 @@ module Game =
         |> Check.QuickThrowOnFailure
 
     [<Test>]
-    let ``validateRuleにPenetration<0を渡すとFailureを返すこと`` () =
+    let ``validateRuleにDeck<1渡すとFailureを返すこと`` () =
         let ruleGen = gen {
             let! rule = Arb.generate<GameRule>
-            let! penetration = Arb.generate<float> |> Gen.suchThat ((>) 0.0)
-            return { rule with Penetration = penetration }
+            let! deck = Gen.frequency [1, Gen.constant 0; 9, Gen.choose(Int32.MinValue, -1)]
+            return { rule with Deck = deck }
         }
         Prop.forAll (Arb.fromGen ruleGen) (Game.validateRule >> Result.isFailure)
         |> Check.QuickThrowOnFailure
 
     [<Test>]
-    let ``validateRuleにPenetration>1渡すとFailureを返すこと`` () =
+    let ``validateRuleに妥当なGameRuleを渡すとSuccessを返すこと`` () =
         let ruleGen = gen {
-            let! rule = Arb.generate<GameRule>
-            let! penetration = Arb.generate<float> |> Gen.suchThat ((<) 1.0)
-            return { rule with Penetration = penetration }
+            let! payRatio = Arb.generate<float> |> Gen.suchThat ((<=) 1.0)
+            let! deck = Gen.frequency [1, Gen.constant 1; 9, Gen.choose(2, Int32.MaxValue)]
+            let! dealerStrategy = Arb.generate<DealerStrategy>
+            return {
+                PayRatioWinningBlackjack = payRatio
+                Deck = deck
+                DealerStrategy = dealerStrategy }
         }
-        Prop.forAll (Arb.fromGen ruleGen) (Game.validateRule >> Result.isFailure)
+        Prop.forAll (Arb.fromGen ruleGen) (Game.validateRule >> (=) (Success()))
         |> Check.QuickThrowOnFailure

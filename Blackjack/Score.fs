@@ -35,7 +35,7 @@ module Score =
     /// </summary>
     /// <param name="playerScore">プレイヤーのスコア</param>
     /// <param name="dealerScore">ディーラーのスコア</param>
-    /// <returns>プレイヤーの方が勝っている場合は正、ディーラーの方が勝っている場合は負、引き分けの場合は0</returns>
+    /// <returns>プレイヤーの方が勝っている場合は1、ディーラーの方が勝っている場合は-1、引き分けの場合は0</returns>
     let compare playerScore dealerScore =
         match playerScore, dealerScore with
         | Busted, Busted -> -1
