@@ -54,6 +54,7 @@
     <Content Include="packages.config" />
     <Compile Include="Card.fs" />
     <Compile Include="Score.fs" />
+    <Compile Include="Game.fs" />
   </ItemGroup>
   <ItemGroup>
     <Reference Include="Basis.Core">
