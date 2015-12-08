@@ -18,6 +18,9 @@ module Game =
         return score, isSoft
     }
 
+    [<SetUp>]
+    let setup() = registerGen.Force()
+
     [<Test>]
     let ``dealerStrategyStandOnAll17はScore(16)以下の場合Hitすること`` () =
         Prop.forAll (getScoreGen false 1 16 |> Arb.fromGen) (Game.dealerStrategyStandOnAll17 >> (=) Game.DealerAction.Hit)
@@ -93,3 +96,119 @@ module Game =
         }
         Prop.forAll (Arb.fromGen ruleGen) (Game.validateRule >> (=) (Success()))
         |> Check.QuickThrowOnFailure
+
+    let getCardListGen sum =
+        let rec loop result = function
+            | 0 -> result |> Gen.constant
+            | sum -> gen {
+                let maxNumber = min sum 10
+                let! number = Gen.choose(1, maxNumber)
+                let! rank =
+                    match number with
+                    | 1 -> Gen.constant AceRank
+                    | 10 -> Gen.elements [NumberRank 10; JackRank; QueenRank; KingRank]
+                    | x -> Gen.constant (NumberRank x)
+                let! card = Arb.generate<Card>
+                return! loop ({ card with Rank = rank }::result) (sum - number)
+            }
+        loop [] sum
+
+    [<Test>]
+    let ``playPlayerにBusted状態の手を渡すとBustedが返り、カードリストと状態は変化せず、playerStrategyは呼び出されないこと`` () =
+        let parameterGen = gen {
+            let! gameState = Arb.generate<GameState>
+            let! sum = Gen.choose(22, 30)
+            let! playerHands = getCardListGen sum
+            let! cards = Arb.generate<Card> |> Gen.listOf
+            return cards, { gameState with PlayerHands = playerHands }
+        }
+        Prop.forAll (Arb.fromGen parameterGen) (fun (cards, gameState) ->
+            let mutable called = false
+            let playerStrategy _ = called <- true; Hit
+            Game.playPlayer playerStrategy cards gameState = (Busted, cards, gameState) && not called)
+        |> Check.QuickThrowOnFailure
+
+    [<Test>]
+    let ``playPlayerに必ずHitするstrategyを渡すとBustedが返ること`` () =
+        let parameterGen = gen {
+            let! gameState = Arb.generate<GameState>
+            let! sum = Gen.choose(2, 21)
+            let! playerHands = getCardListGen sum
+            let! cards = Arb.generate<Card> |> Gen.listOfLength 20
+            return cards, { gameState with PlayerHands = playerHands }
+        }
+        Prop.forAll (Arb.fromGen parameterGen) (fun (cards, gameState) ->
+            let playerStrategy _ = Hit
+            let score, cards', gameState' = Game.playPlayer playerStrategy cards gameState
+            score = Busted
+            && List.rev cards' @ gameState'.PlayerHands = List.rev cards @ gameState.PlayerHands
+            && gameState'.DealerHands = gameState.DealerHands)
+        |> Check.QuickThrowOnFailure
+
+    [<Test>]
+    let ``playPlayerに必ずStandするstrategyを渡すと初期stateが返ること`` () =
+        let parameterGen = gen {
+            let! gameState = Arb.generate<GameState>
+            let! sum = Gen.choose(2, 21)
+            let! playerHands = getCardListGen sum
+            let! cards = Arb.generate<Card> |> Gen.listOfLength 20
+            return cards, { gameState with PlayerHands = playerHands }
+        }
+        Prop.forAll (Arb.fromGen parameterGen) (fun (cards, gameState) ->
+            let playerStrategy _ = Stand
+            let score, cards', gameState' = Game.playPlayer playerStrategy cards gameState
+            let expectedScore, _ = gameState.PlayerHands |> List.map Card.toNumber |> Score.calculate
+            score = expectedScore && cards' = cards && gameState' = gameState)
+        |> Check.QuickThrowOnFailure
+
+    [<Test>]
+    let ``playDealerにBusted状態の手を渡すとBustedが返り、状態は変化せず、dealerStrategyは呼び出されないこと`` () =
+        let parameterGen = gen {
+            let! gameState = Arb.generate<GameState>
+            let! sum = Gen.choose(22, 30)
+            let! dealerHands = getCardListGen sum
+            let! cards = Arb.generate<Card> |> Gen.listOf
+            return cards, { gameState with DealerHands = dealerHands }
+        }
+        Prop.forAll (Arb.fromGen parameterGen) (fun (cards, gameState) ->
+            let mutable called = false
+            let dealerStrategy _ = called <- true; Game.DealerAction.Hit
+            Game.playDealer dealerStrategy cards gameState = (Busted, cards, gameState) && not called)
+        |> Check.QuickThrowOnFailure
+
+    [<Test>]
+    let ``playDealerに必ずHitするstrategyを渡すとBustedが返ること`` () =
+        let parameterGen = gen {
+            let! gameState = Arb.generate<GameState>
+            let! sum = Gen.choose(2, 21)
+            let! dealerHands = getCardListGen sum
+            let! cards = Arb.generate<Card> |> Gen.listOfLength 20
+            return cards, { gameState with DealerHands = dealerHands }
+        }
+        Prop.forAll (Arb.fromGen parameterGen) (fun (cards, gameState) ->
+            let dealerStrategy _ = Game.DealerAction.Hit
+            let score, cards', gameState' = Game.playDealer dealerStrategy cards gameState
+            score = Busted
+            && List.rev cards' @ gameState'.DealerHands = List.rev cards @ gameState.DealerHands
+            && gameState'.PlayerHands = gameState.PlayerHands)
+        |> Check.QuickThrowOnFailure
+
+    [<Test>]
+    let ``playDealerに必ずStandするstrategyを渡すと初期stateが返ること`` () =
+        let parameterGen = gen {
+            let! gameState = Arb.generate<GameState>
+            let! sum = Gen.choose(2, 21)
+            let! dealerHands = getCardListGen sum
+            let! cards = Arb.generate<Card> |> Gen.listOfLength 20
+            return cards, { gameState with DealerHands = dealerHands }
+        }
+        Prop.forAll (Arb.fromGen parameterGen) (fun (cards, gameState) ->
+            let dealerStrategy _ = Game.DealerAction.Stand
+            let score, cards', gameState' = Game.playDealer dealerStrategy cards gameState
+            let expectedScore, _ = gameState.DealerHands |> List.map Card.toNumber |> Score.calculate
+            score = expectedScore && cards' = cards && gameState' = gameState)
+        |> Check.QuickThrowOnFailure
+
+    // TODO getResultのテスト追加
+    // TODO getGainのテスト追加
+    // TODO playのテスト追加

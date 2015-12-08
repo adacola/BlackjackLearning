@@ -79,13 +79,13 @@ module Game =
     let rec internal playDealer dealerStrategy cards gameState =
         let { DealerHands = hands } = gameState
         match hands |> List.map Card.toNumber |> Score.calculate with
-        | Busted, _ -> Busted, gameState
+        | Busted, _ -> Busted, cards, gameState
         | score ->
             match dealerStrategy score, cards with
             | DealerAction.Hit, card::rest ->
                 { gameState with DealerHands = card::hands } |> playDealer dealerStrategy rest
             | DealerAction.Hit, [] -> failwith "カードが残っていません"
-            | DealerAction.Stand, _ -> fst score, gameState
+            | DealerAction.Stand, _ -> fst score, cards, gameState
 
     let internal getResult playerScore dealerScore =
         match Score.compare playerScore dealerScore with
@@ -125,7 +125,7 @@ module Game =
         let playerScore, playerEndCards, playerEndGameState = playPlayer playerStrategy playerStartCards playerStartGameState
         // ディーラーがゲームプレイ
         let dealerStartGameState = { playerEndGameState with DealerHands = dealerClosedCard::playerEndGameState.DealerHands }
-        let dealerScore, dealerEndGameState = playDealer dealerStrategy playerEndCards dealerStartGameState
+        let dealerScore, _, dealerEndGameState = playDealer dealerStrategy playerEndCards dealerStartGameState
 
         // 勝敗を決定
         let result = getResult playerScore dealerScore

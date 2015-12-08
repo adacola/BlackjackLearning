@@ -92,6 +92,7 @@
   <ItemGroup>
     <None Include="packages.config" />
     <None Include="App.config" />
+    <Compile Include="Generator.fs" />
     <Compile Include="CardTest.fs" />
     <Compile Include="ScoreTest.fs" />
     <Compile Include="GameTest.fs" />
