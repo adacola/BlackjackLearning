@@ -10,6 +10,9 @@ module Card =
     open System
     open FsRandom
 
+    [<SetUp>]
+    let setup() = registerGen.Force()
+
     [<Test>]
     let ``Aceの場合はisValidがtrueを返すこと`` () =
         Ace |> Card.isValid |> should be True
@@ -41,14 +44,14 @@ module Card =
     [<Test>]
     let ``toNumberでカードを数値に変換できること`` () =
         let cardGen = gen {
+            let! card = Arb.generate<Card>
             let! rank, number =
                 [AceRank, Ace; JackRank, Number 10; QueenRank, Number 10; KingRank, Number 10]
                 @ [for i in 2 .. 10 -> NumberRank i, Number i]
                 |> Gen.elements
-            let! suit = Arb.from<CardSuit> |> Arb.toGen
-            return { Rank = rank; Suit = suit }, number
+            return { card with Rank = rank }, number
         }
-        Prop.forAll (Arb.fromGen cardGen) (fun (card, expected) -> card |> Card.toNumber |> (=) expected)
+        Prop.forAll (Arb.fromGen cardGen) (fun (card, expected) -> Card.toNumber card = expected)
         |> Check.QuickThrowOnFailure
 
     let getExpectedSortedCards deck =
