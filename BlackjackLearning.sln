@@ -3,6 +3,11 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio 14
 VisualStudioVersion = 14.0.23107.0
 MinimumVisualStudioVersion = 10.0.40219.1
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = ".paket", ".paket", "{AC33D651-B115-4B98-8F67-8DEE0051CB89}"
+	ProjectSection(SolutionItems) = preProject
+		paket.dependencies = paket.dependencies
+	EndProjectSection
+EndProject
 Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "BlackjackLearning", "BlackJackLearning\BlackjackLearning.fsproj", "{ADE4DE46-73DE-4599-B29B-A6098414D98B}"
 EndProject
 Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "Blackjack", "BlackJack\Blackjack.fsproj", "{4548D1F0-F73B-4704-B612-ED293A49BB3F}"
